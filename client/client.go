@@ -101,6 +101,7 @@ func someUsefulThings() {
 // (e.g. like the Username attribute) and methods (e.g. like the StoreFile method below).
 type User struct {
 	Username string
+	Password string
 
 	// You can add other attributes here if you want! But note that in order for attributes to
 	// be included when this struct is serialized to/from JSON, they must be capitalized.
@@ -115,12 +116,22 @@ type User struct {
 func InitUser(username string, password string) (userdataptr *User, err error) {
 	var userdata User
 	userdata.Username = username
+	// userdata.Password = userlib.symEnc(, , password)
+	storageKey, err := uuid.FromBytes(userlib.Hash([]byte(userdata.Username))[:16])
+	contentBytes, err := json.Marshal(userdata)
+	userlib.DatastoreSet(storageKey, contentBytes)
 	return &userdata, nil
 }
 
 func GetUser(username string, password string) (userdataptr *User, err error) {
 	var userdata User
+	dataKey, err := uuid.FromBytes(userlib.Hash([]byte(username))[:16])
+	dataJSON, ok := userlib.DatastoreGet(dataKey)
+	if !ok {
+		return nil, errors.New(strings.ToTitle("user not found"))
+	}
 	userdataptr = &userdata
+	err = json.Unmarshal(dataJSON, userdataptr)
 	return userdataptr, nil
 }
 
