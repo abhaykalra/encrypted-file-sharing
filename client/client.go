@@ -103,7 +103,7 @@ type User struct {
 	Username   string
 	Password   string
 	SignKey    userlib.DSSignKey
-	privateKey []byte
+	privateKey userlib.PKEDecKey
 	salt       []byte
 	rootKey    []byte
 	// You can add other attributes here if you want! But note that in order for attributes to
@@ -154,7 +154,8 @@ func InitUser(username string, password string) (userdataptr *User, err error) {
 	var rootKey []byte = userlib.Argon2Key([]byte(password), salt, 32) //generate root key
 
 	// var skEncrypted []byte = SymEnc(rootKey , iv []byte, sk) // encrypt sk with root key
-	userdata.privateKey = rootKey // store private key pkdf encryped in datastore
+	userdata.privateKey = sk // store private key pkdf encryped in datastore
+	userdata.rootKey = rootKey
 
 	storageKey, err := uuid.FromBytes(userlib.Hash([]byte(username))[:16])
 	contentBytes, err := json.Marshal(userdata)
@@ -237,30 +238,45 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 	var filedata File
 	var filePlacer File
 	if !ok {
-		// create file in namespace from scratch
-		// generate random UUID
+		// This is going to be a totally new file
+		// Create the first layer of abstraction
 		randomUUID := uuid.New()
-		// use key
-		// set thisfilestruct.fileContent equal to random uuid we create before (1)
-		fileContents := LinkedList{}
-		content_node := Node{}
-		content_node.value = content
-		fileContents.head = &content_node
-		fileContents.tail = &content_node
-		filedata.FileContent = fileContents
-		filePlacer.FileOwner = userdata.Username
-
+		// Add uuid to 'fake' file
+		filedata.PlaceHolder = randomUUID
 		contentBytes, err := json.Marshal(filedata)
 		if err != nil {
 			return err
 		}
-
-		encrypted_contents := userlib.SymEnc(userdata.privateKey, userdata.salt, contentBytes)
+		// Encrypt fake file
+		encrypted_contents := userlib.SymEnc(userlib.Argon2Key([]byte(userdata.Password+filename), userdata.salt, 32), userdata.salt, contentBytes)
 		signature, err := userlib.DSSign(userdata.SignKey, encrypted_contents)
 		if err != nil {
 			return err
 		}
 		store := append(signature[:], encrypted_contents[:]...)
+		// Store the fake file
+		userlib.DatastoreSet(key, store)
+
+		// Start storing the real file
+		fileContents := LinkedList{}
+		content_node := Node{}
+		content_node.value = content
+		fileContents.head = &content_node
+		fileContents.tail = &content_node
+		filePlacer.FileContent = fileContents
+		filePlacer.FileOwner = userdata.Username
+
+		contentBytes, err = json.Marshal(filePlacer)
+		if err != nil {
+			return err
+		}
+		// Encrypt and store the file with the actual contents
+		encrypted_contents = userlib.SymEnc(userlib.Argon2Key([]byte(userdata.Password+filename), userdata.salt, 32), userdata.salt, contentBytes)
+		signature, err = userlib.DSSign(userdata.SignKey, encrypted_contents)
+		if err != nil {
+			return err
+		}
+		store = append(signature[:], encrypted_contents[:]...)
 
 		userlib.DatastoreSet(randomUUID, store)
 	} else {
@@ -311,7 +327,7 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 			return err
 		}
 
-		encrypted_contents := userlib.SymEnc(userdata.privateKey, userdata.salt, contentBytes)
+		encrypted_contents := userlib.SymEnc(userlib.Argon2Key([]byte(userdata.Password+filename), userdata.salt, 32), userdata.salt, contentBytes)
 		signature, err := userlib.DSSign(userdata.SignKey, encrypted_contents)
 		if err != nil {
 			return err
