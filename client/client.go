@@ -788,7 +788,9 @@ func (userdata *User) CreateInvitation(filename string, recipientUsername string
 	if err != nil {
 		return uuid.Nil, errors.New(strings.ToTitle("Error UnMarshalling 682"))
 	}
-
+	if filePlacer.SharedWith[recipientUsername] != nil {
+		return uuid.Nil, errors.New(strings.ToTitle("cant create invite"))
+	}
 	var strSlice []string
 	filePlacer.SharedWith[userdata.Username] = append(filePlacer.SharedWith[userdata.Username], recipientUsername)
 	filePlacer.SharedWith[recipientUsername] = strSlice
@@ -843,7 +845,6 @@ func (userdata *User) CreateInvitation(filename string, recipientUsername string
 	encrypted_invite := userlib.SymEnc(encKeyInviteAdjusted, saltInviteAdjusted, jsonInvite)
 
 	//userlib.DebugMsg("NO ERRORS THROUGH 775: %v", "USER"+userdata.Username)
-	//userlib.DebugMsg("type of key in question: %v", reflect.TypeOf(userdata.SignKey))
 	//userlib.DebugMsg("THIS IS THE KEY: %v", userdata.SignKey)
 	signature, err := userlib.DSSign(userdata.SignKey, encrypted_invite)
 	if err != nil {
@@ -1082,6 +1083,10 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		// *******************************************************************************
 
 		// lookup recipientUsername in owners's list
+		_, ok = sharedMap[recipientUsername]
+		if !ok {
+			return errors.New(strings.ToTitle("Never shared with recipient"))
+		}
 		HelperDeleter(sharedMap, recipientUsername, userdata.Username)
 		filePlacer.SharedWith = sharedMap
 		// finally you are left with map of all the people who still have the file
@@ -1132,6 +1137,62 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	return nil
 }
 
+// func (l *List) InsertAt(pos int, value byte[]) {
+// 	// create a new node
+// 	newNode := Node{}
+// 	newNode.value = value
+// 	// validate the position
+// 	if pos < 0 {
+// 		return
+// 	}
+// 	if pos == 0 {
+// 		l.head = &newNode
+// 		l.len++
+// 		return
+// 	}
+// 	if pos > l.len {
+// 		return
+// 	}
+
+// 	ptr := l.tail
+
+// 	n := l.GetAt(pos)
+// 	newNode.next = n
+// 	prevNode := l.GetAt(pos - 1)
+// 	prevNode.next = &newNode
+// 	l.len++
+// }
+
+func (L *LinkedList) Insert(key []byte) {
+	list := &Node{
+		Next: nil,
+		Val:  key,
+	}
+	// if L.Head != nil {
+	// 	L.Head.Prev = list
+	// }
+	L.Head = list
+
+	l := L.Head
+	for l.Next != nil {
+		l = l.Next
+	}
+	L.Tail = l
+}
+
+func (L *LinkedList) InsertEnd(key []byte) {
+	list := &Node{
+		Next: nil,
+		Val:  key,
+	}
+	L.Tail.Next = list
+	l := L.Head
+	for l.Next != nil {
+		l = l.Next
+	}
+	L.Tail = l
+}
+
 func NewNode(value []byte, next *Node) *Node {
 	var n Node
 	n.Val = value
@@ -1161,6 +1222,19 @@ func AddNodeAtEnd(head *Node, data []byte) *Node {
 	temp.Next = NewNode(data, nil)
 	return head
 }
+
+// Insert inserts new node at the end of  from linked list
+// func (l *LinkedList) Insert(val []byte) {
+// 	n := &Node{
+// 		next: l.head,
+// 		value:  val,
+// 	}
+// 	n.Value = val
+// 	l.Tail.Next = &n
+// 	l.Tail = l.Tail.Next
+// }
+
+// var p *Point = new(Point)
 
 // map[alice:[bob,mallory,charles,eve] bob:[charles] mallory:[] charles:[eve], eve:[]]
 func HelperDeleter(dict map[string][]string, recipientUsername string, caller string) {

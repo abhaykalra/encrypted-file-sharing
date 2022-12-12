@@ -1083,6 +1083,9 @@ var _ = Describe("Client Tests", func() {
 			Expect(err).To(BeNil())
 			Expect(data).To(Equal([]byte("ABCDEFG")))
 
+			userlib.DebugMsg("Checking that Doris can store with the file")
+			doris.StoreFile(dorisFile, []byte("ABCDEFG"))
+
 			userlib.DebugMsg("Charles creating invite for Grace")
 			invite, err = charles.CreateInvitation(charlesFile, "grace")
 			Expect(err).To(BeNil())
@@ -1106,6 +1109,14 @@ var _ = Describe("Client Tests", func() {
 			userlib.DebugMsg("Frank accepts invite as frankFile")
 			err = frank.AcceptInvitation("doris", invite, frankFile)
 			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Checking that Frank can store with the file")
+			frank.StoreFile(frankFile, []byte("ABCDEFG"))
+
+			userlib.DebugMsg("Checking that Frank can load the file")
+			data, err = frank.LoadFile(frankFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte("ABCDEFG")))
 
 			userlib.DebugMsg("Checking that Charles can load the file")
 			data, err = charles.LoadFile(charlesFile)
@@ -1193,7 +1204,7 @@ var _ = Describe("Client Tests", func() {
 
 		})
 
-		Specify("Cannot revoke access from a file which is not in your namespace", func() {
+		Specify("Complex TestCannot revoke access from a file which is not in your namespace", func() {
 			userlib.DebugMsg("Initializing Alice")
 			alice, err = client.InitUser("alice", defaultPassword)
 			Expect(err).To(BeNil())
@@ -1232,7 +1243,7 @@ var _ = Describe("Client Tests", func() {
 
 		})
 
-		Specify("Cannot loadfile if access revoked before accepting", func() {
+		Specify("Complex Test Cannot loadfile if access revoked before accepting", func() {
 			userlib.DebugMsg("Initializing Alice")
 			alice, err = client.InitUser("alice", defaultPassword)
 			Expect(err).To(BeNil())
@@ -1266,7 +1277,7 @@ var _ = Describe("Client Tests", func() {
 
 		})
 
-		Specify("Cannot revoke from someone you did not share with", func() {
+		Specify("Complex Test Cannot revoke from someone you did not share with", func() {
 			userlib.DebugMsg("Initializing Alice")
 			alice, err = client.InitUser("alice", defaultPassword)
 			Expect(err).To(BeNil())
@@ -1281,6 +1292,116 @@ var _ = Describe("Client Tests", func() {
 
 			userlib.DebugMsg("Alice attempts to revoke access from Bob")
 			err = alice.RevokeAccess(aliceFile, "bob")
+			Expect(err).ToNot(BeNil())
+
+		})
+
+		Specify("Share, Revoke, Share", func() {
+			userlib.DebugMsg("Initializing Alice")
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Initializing Bob")
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice creating aliceFile")
+			err = alice.StoreFile(aliceFile, []byte("bat"))
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice creating invite for Bob")
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Bob accepts invite as bobFile")
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice attempts to revoke access from Bob")
+			err = alice.RevokeAccess(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice creating invite for Bob")
+			invite, err = alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Bob accepts invite as bobFile")
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Checking that Bob can load the file")
+			data, err := bob.LoadFile(bobFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte("bat")))
+
+		})
+
+		Specify("Complex Test Revoking revoked user again", func() {
+			userlib.DebugMsg("Initializing Alice")
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Initializing Bob")
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice creating aliceFile")
+			err = alice.StoreFile(aliceFile, []byte("bat"))
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice creating invite for Bob")
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Bob accepts invite as bobFile")
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice attempts to revoke access from Bob")
+			err = alice.RevokeAccess(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice attempts to revoke access from Bob again")
+			err = alice.RevokeAccess(aliceFile, "bob")
+			Expect(err).ToNot(BeNil())
+
+		})
+
+		Specify("Complex Test cannot accept invite from someoen who had their access revoked before you accepted", func() {
+			userlib.DebugMsg("Initializing Alice")
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Initializing Bob")
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Initializing Charles")
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice creating aliceFile")
+			err = alice.StoreFile(aliceFile, []byte("bat"))
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice creating invite for Bob")
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Bob accepts invite as bobFile")
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Bob creating invite for Charles")
+			bobinvite, err := bob.CreateInvitation(bobFile, "charles")
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice attempts to revoke access from Bob")
+			err = alice.RevokeAccess(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Charles attempts to accept invite as charlesFile")
+			err = charles.AcceptInvitation("bob", bobinvite, charlesFile)
 			Expect(err).ToNot(BeNil())
 
 		})
