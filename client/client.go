@@ -7,7 +7,6 @@ package client
 
 import (
 	"encoding/json"
-	"reflect"
 
 	userlib "github.com/cs161-staff/project2-userlib"
 	"github.com/google/uuid"
@@ -844,7 +843,7 @@ func (userdata *User) CreateInvitation(filename string, recipientUsername string
 	encrypted_invite := userlib.SymEnc(encKeyInviteAdjusted, saltInviteAdjusted, jsonInvite)
 
 	//userlib.DebugMsg("NO ERRORS THROUGH 775: %v", "USER"+userdata.Username)
-	userlib.DebugMsg("type of key in question: %v", reflect.TypeOf(userdata.SignKey))
+	//userlib.DebugMsg("type of key in question: %v", reflect.TypeOf(userdata.SignKey))
 	//userlib.DebugMsg("THIS IS THE KEY: %v", userdata.SignKey)
 	signature, err := userlib.DSSign(userdata.SignKey, encrypted_invite)
 	if err != nil {
